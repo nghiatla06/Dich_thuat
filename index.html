@@ -3,95 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phiên Dịch Tự Động - Thầy Nghĩa</title>
+    <title>Phiên Dịch Đa Ngữ - Thầy Nghĩa</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 15px; }
         .card { width: 100%; max-width: 500px; background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        #chat { height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 15px; margin-bottom: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
-        #micBtn { width: 100%; padding: 18px; font-size: 18px; border: none; border-radius: 50px; background: #007bff; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        #micBtn.active { background: #dc3545; }
-        .msg { padding: 12px; border-radius: 15px; max-width: 85%; line-height: 1.5; font-size: 16px; }
-        .vi { align-self: flex-start; background: #e3f2fd; color: #0d47a1; border-bottom-left-radius: 2px; }
-        .foreign { align-self: flex-end; background: #f1f8e9; color: #1b5e20; border-bottom-right-radius: 2px; text-align: right; }
-        small { font-size: 11px; color: #666; margin-bottom: 4px; display: block; }
+        #chat { height: 350px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin: 15px 0; display: flex; flex-direction: column; gap: 10px; border-radius: 10px; }
+        .lang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
+        .lang-btn { padding: 10px 5px; font-size: 13px; border: 1px solid #ddd; border-radius: 10px; cursor: pointer; background: white; transition: 0.2s; }
+        .lang-btn.active { background: #007bff; color: white; border-color: #007bff; font-weight: bold; }
+        #micBtn { width: 100%; padding: 18px; font-size: 18px; border: none; border-radius: 50px; background: #28a745; color: white; font-weight: bold; cursor: pointer; }
+        .msg { padding: 12px; border-radius: 15px; max-width: 85%; font-size: 16px; }
+        .vi { align-self: flex-start; background: #e3f2fd; color: #0d47a1; }
+        .foreign { align-self: flex-end; background: #f1f8e9; color: #1b5e20; text-align: right; }
     </style>
 </head>
 <body>
     <div class="card">
         <h3 style="text-align: center; margin-top: 0;">🌐 Phiên dịch THPT Tiểu La</h3>
+        
+        <p style="font-size: 13px; color: #666; margin-bottom: 8px;">Chọn tiếng của khách:</p>
+        <div class="lang-grid" id="langSelector">
+            <button class="lang-btn active" onclick="changeLang('en-US', this)">🇺🇸 Tiếng Anh</button>
+            <button class="lang-btn" onclick="changeLang('zh-CN', this)">🇨🇳 Tiếng Trung</button>
+            <button class="lang-btn" onclick="changeLang('fr-FR', this)">🇫🇷 Tiếng Pháp</button>
+            <button class="lang-btn" onclick="changeLang('ja-JP', this)">🇯🇵 Tiếng Nhật</button>
+            <button class="lang-btn" onclick="changeLang('ko-KR', this)">🇰🇷 Tiếng Hàn</button>
+            <button class="lang-btn" onclick="changeLang('vi-VN', this)">🇻🇳 Tiếng Việt</button>
+        </div>
+
         <div id="chat"></div>
         <button id="micBtn">🎤 BẤM ĐỂ NÓI</button>
-        <p id="status" style="text-align: center; color: gray; font-size: 13px; margin-top: 10px;">Chưa bắt đầu</p>
     </div>
 
     <script>
         const micBtn = document.getElementById('micBtn');
         const chat = document.getElementById('chat');
-        const status = document.getElementById('status');
-        let guestLang = null;
+        let currentLang = 'en-US'; 
+
+        function changeLang(code, btn) {
+            currentLang = code;
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
 
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.interimResults = false;
-        recognition.lang = ''; // Để trống để trình duyệt tự nhận diện đa ngôn ngữ
 
         micBtn.onclick = () => {
-            try {
-                recognition.start();
-                status.innerText = "Hệ thống đang nghe...";
-            } catch (e) { console.log("Đã đang nghe..."); }
-        };
-
-        recognition.onstart = () => {
+            recognition.lang = currentLang; // Nghe đúng tiếng thầy đã chọn
+            recognition.start();
             micBtn.innerText = "🎧 ĐANG NGHE...";
-            micBtn.classList.add('active');
+            micBtn.style.background = "#dc3545";
         };
 
         recognition.onresult = async (event) => {
-            const speechText = event.results[0][0].transcript;
-            status.innerText = "Đang phân tích ngôn ngữ và dịch...";
-            
-            // Bước 1: Gọi Google API với sl=auto để TỰ ĐỘNG nhận diện tiếng Trung, Pháp, Anh...
-            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q=${encodeURI(speechText)}`);
-            const data = await res.json();
-            const detected = data[2]; // Mã ngôn ngữ Google phát hiện được
-            const translatedVi = data[0][0][0];
-
-            if (detected === 'vi') {
-                // Thầy nói tiếng Việt -> Dịch sang ngôn ngữ của khách
-                let target = guestLang || 'en'; // Mặc định Anh nếu khách chưa nói
-                const resF = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=vi&tl=${target}&dt=t&q=${encodeURI(speechText)}`);
-                const dataF = await resF.json();
-                addChat(speechText, dataF[0][0][0], 'vi', 'Bạn (Việt)');
-            } else {
-                // Khách nói tiếng nước ngoài -> Ghi nhớ ngôn ngữ này và dịch sang Việt
-                guestLang = detected;
-                addChat(speechText, translatedVi, 'foreign', `Khách (${detected.toUpperCase()})`);
-            }
-        };
-
-        recognition.onend = () => {
+            const text = event.results[0][0].transcript;
             micBtn.innerText = "🎤 BẤM ĐỂ NÓI";
-            micBtn.classList.remove('active');
-            status.innerText = "Sẵn sàng cho câu tiếp theo.";
+            micBtn.style.background = "#28a745";
+            
+            // Nếu đang nghe tiếng Việt thì dịch ra tiếng khách, ngược lại dịch về Việt
+            let target = (currentLang === 'vi-VN') ? 'en' : 'vi'; 
+            
+            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURI(text)}`);
+            const data = await res.json();
+            const trans = data[0][0][0];
+
+            addMsg(text, trans, (currentLang === 'vi-VN' ? 'vi' : 'foreign'));
         };
 
-        function addChat(orig, trans, type, label) {
+        function addMsg(orig, trans, type) {
             const div = document.createElement('div');
             div.className = `msg ${type}`;
-            div.innerHTML = `<small>${label}</small><strong>${orig}</strong><br><em>${trans}</em>`;
+            div.innerHTML = `<strong>${orig}</strong><br><em>${trans}</em>`;
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
-
-            // Phát âm câu dịch
-            const utter = new SpeechSynthesisUtterance(trans);
-            utter.lang = (type === 'vi') ? (guestLang || 'en') : 'vi';
-            window.speechSynthesis.speak(utter);
+            
+            const speech = new SpeechSynthesisUtterance(trans);
+            speech.lang = (type === 'vi') ? currentLang : 'vi';
+            window.speechSynthesis.speak(speech);
         }
-
-        recognition.onerror = (e) => {
-            status.innerText = "Lỗi: " + e.error;
-            micBtn.innerText = "🎤 BẤM ĐỂ NÓI";
-        };
+        
+        recognition.onerror = () => { micBtn.innerText = "🎤 BẤM ĐỂ NÓI"; micBtn.style.background = "#28a745"; };
     </script>
 </body>
 </html>
