@@ -3,81 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dịch Thuật Tự Động - Thầy Nghĩa</title>
+    <title>Phiên Dịch Tự Động - Thầy Nghĩa</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 15px; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 15px; }
         .card { width: 100%; max-width: 500px; background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        #chat { height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px; }
-        #micBtn { width: 100%; padding: 20px; font-size: 18px; border: none; border-radius: 50px; background: #007bff; color: white; font-weight: bold; cursor: pointer; }
-        #status { text-align: center; color: #666; font-size: 14px; margin-top: 10px; }
-        .msg { padding: 10px; border-radius: 12px; max-width: 85%; }
-        .vi { align-self: flex-start; background: #e3f2fd; color: #0d47a1; }
-        .foreign { align-self: flex-end; background: #f1f8e9; color: #1b5e20; text-align: right; }
+        #chat { height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 15px; margin-bottom: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
+        #micBtn { width: 100%; padding: 18px; font-size: 18px; border: none; border-radius: 50px; background: #007bff; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        #micBtn.active { background: #dc3545; }
+        .msg { padding: 12px; border-radius: 15px; max-width: 85%; line-height: 1.5; font-size: 16px; }
+        .vi { align-self: flex-start; background: #e3f2fd; color: #0d47a1; border-bottom-left-radius: 2px; }
+        .foreign { align-self: flex-end; background: #f1f8e9; color: #1b5e20; border-bottom-right-radius: 2px; text-align: right; }
+        small { font-size: 11px; color: #666; margin-bottom: 4px; display: block; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h3 style="text-align: center;">🌐 Phiên dịch Tự động Tiểu La</h3>
+        <h3 style="text-align: center; margin-top: 0;">🌐 Phiên dịch THPT Tiểu La</h3>
         <div id="chat"></div>
         <button id="micBtn">🎤 BẤM ĐỂ NÓI</button>
-        <div id="status">Sẵn sàng</div>
+        <p id="status" style="text-align: center; color: gray; font-size: 13px; margin-top: 10px;">Chưa bắt đầu</p>
     </div>
 
     <script>
         const micBtn = document.getElementById('micBtn');
         const chat = document.getElementById('chat');
         const status = document.getElementById('status');
-        let guestLang = null; // Biến nhớ ngôn ngữ khách
+        let guestLang = null;
 
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.interimResults = false;
+        recognition.lang = ''; // Để trống để trình duyệt tự nhận diện đa ngôn ngữ
 
         micBtn.onclick = () => {
-            // KHÔNG ép ngôn ngữ ở đây để tránh lỗi chỉ nhận tiếng Anh
-            recognition.start();
+            try {
+                recognition.start();
+                status.innerText = "Hệ thống đang nghe...";
+            } catch (e) { console.log("Đã đang nghe..."); }
+        };
+
+        recognition.onstart = () => {
             micBtn.innerText = "🎧 ĐANG NGHE...";
-            status.innerText = "Hệ thống đang phân tích giọng nói...";
+            micBtn.classList.add('active');
         };
 
         recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript;
-            micBtn.innerText = "🎤 BẤM ĐỂ NÓI";
+            const speechText = event.results[0][0].transcript;
+            status.innerText = "Đang phân tích ngôn ngữ và dịch...";
             
-            // Gửi lên Google với sl=auto để TỰ ĐỘNG nhận diện ngôn ngữ
-            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q=${encodeURI(text)}`;
-            const response = await fetch(url);
-            const data = await response.json();
-            
-            const detectedLang = data[2]; // Mã ngôn ngữ Google phát hiện (en, zh, fr, ja...)
+            // Bước 1: Gọi Google API với sl=auto để TỰ ĐỘNG nhận diện tiếng Trung, Pháp, Anh...
+            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q=${encodeURI(speechText)}`);
+            const data = await res.json();
+            const detected = data[2]; // Mã ngôn ngữ Google phát hiện được
             const translatedVi = data[0][0][0];
 
-            if (detectedLang === 'vi') {
-                // Nếu thầy nói tiếng Việt, máy tự dịch sang ngôn ngữ của khách đã biết
-                let target = guestLang || 'en'; 
-                const resF = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=vi&tl=${target}&dt=t&q=${encodeURI(text)}`);
+            if (detected === 'vi') {
+                // Thầy nói tiếng Việt -> Dịch sang ngôn ngữ của khách
+                let target = guestLang || 'en'; // Mặc định Anh nếu khách chưa nói
+                const resF = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=vi&tl=${target}&dt=t&q=${encodeURI(speechText)}`);
                 const dataF = await resF.json();
-                addChat(text, dataF[0][0][0], 'vi', 'Bạn (Việt)');
+                addChat(speechText, dataF[0][0][0], 'vi', 'Bạn (Việt)');
             } else {
-                // Nếu khách nói tiếng nước ngoài, cập nhật guestLang và dịch sang Việt
-                guestLang = detectedLang;
-                addChat(text, translatedVi, 'foreign', `Khách (${detectedLang.toUpperCase()})`);
+                // Khách nói tiếng nước ngoài -> Ghi nhớ ngôn ngữ này và dịch sang Việt
+                guestLang = detected;
+                addChat(speechText, translatedVi, 'foreign', `Khách (${detected.toUpperCase()})`);
             }
+        };
+
+        recognition.onend = () => {
+            micBtn.innerText = "🎤 BẤM ĐỂ NÓI";
+            micBtn.classList.remove('active');
+            status.innerText = "Sẵn sàng cho câu tiếp theo.";
         };
 
         function addChat(orig, trans, type, label) {
             const div = document.createElement('div');
             div.className = `msg ${type}`;
-            div.innerHTML = `<small>${label}</small><br><strong>${orig}</strong><br><em>${trans}</em>`;
+            div.innerHTML = `<small>${label}</small><strong>${orig}</strong><br><em>${trans}</em>`;
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
-            
+
             // Phát âm câu dịch
             const utter = new SpeechSynthesisUtterance(trans);
             utter.lang = (type === 'vi') ? (guestLang || 'en') : 'vi';
             window.speechSynthesis.speak(utter);
         }
 
-        recognition.onerror = () => { micBtn.innerText = "🎤 BẤM ĐỂ NÓI"; };
+        recognition.onerror = (e) => {
+            status.innerText = "Lỗi: " + e.error;
+            micBtn.innerText = "🎤 BẤM ĐỂ NÓI";
+        };
     </script>
 </body>
 </html>
